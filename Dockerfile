@@ -1,7 +1,7 @@
 # Estágio 1: compila o Angular. Só o resultado estático segue para a imagem
 # final; Node e node_modules ficam neste estágio.
 # Node 24 (>= 24.15, o mínimo do projeto), a mesma linha do CI.
-FROM node:24-slim AS build
+FROM node:25-slim AS build
 
 WORKDIR /build
 
