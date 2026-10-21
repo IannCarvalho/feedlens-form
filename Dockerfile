@@ -14,7 +14,7 @@ RUN npm run build
 
 
 # Estágio 2: nginx servindo o build como site estático.
-FROM nginx:1.27-alpine
+FROM nginx:1.31-alpine
 
 COPY docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /build/dist/feedback-form/browser /usr/share/nginx/html
