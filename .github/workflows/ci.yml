@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           # Angular 22 exige Node >= 24.15 (ou 22.22.3); "24" resolve para a última 24.x.
           node-version: "24"
