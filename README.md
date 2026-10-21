@@ -24,13 +24,15 @@ Limites do contrato: de 5 a 5000 caracteres (`MAX_FEEDBACK_CHARS` no backend). A
 
 O app lê `config.json` ao subir (não entra no bundle), então o mesmo build serve qualquer ambiente:
 
-| Campo | Padrão | Uso |
-|---|---|---|
-| `apiBaseUrl` | `""` | Origem da API, sem barra final. Ex.: `https://api.exemplo.com` |
-| `useMock` | `true` | `true` = modo demonstração, sem servidor. `false` = envia de verdade |
-| `productName` | `"o nosso produto"` | Nome citado nos textos, na voz do cliente final |
+| Campo | `config.json` do repositório | Se o arquivo faltar | Uso |
+|---|---|---|---|
+| `apiBaseUrl` | `http://127.0.0.1:5000` | `""` | Origem da API, sem barra final. Ex.: `https://api.exemplo.com` |
+| `useMock` | `true` | `true` | `true` = modo demonstração, sem servidor. `false` = envia de verdade |
+| `productName` | `o nosso produto` | `nosso produto` | Nome citado nos textos, na voz do cliente final |
 
-Se o arquivo faltar ou falhar, o app cai no modo demonstração em vez de abrir em branco.
+O `productName` entra no meio de uma frase ("Sua opinião ajuda a melhorar *{productName}*"), então escreva-o com o artigo: `o Acme App`, `a loja Acme`.
+
+Se o arquivo faltar ou falhar, o app cai no modo demonstração (segunda coluna) em vez de abrir em branco.
 
 **Modo demonstração** (`useMock: true`, o padrão do repositório): nada é enviado ao servidor e nada aparece no painel. Um painel recolhido, que não existe com `useMock: false`, troca o cenário (envio normal, repetido, lento, muitos envios, instável, sem conexão, recusado) e mostra o corpo que seria enviado. Também dá para abrir `?cenario=sem-conexao` na URL.
 
@@ -50,7 +52,7 @@ npm run build        # dist/feedback-form/browser (com orçamento de bundle)
 Para enviar de verdade a um backend local:
 
 1. Suba o backend em `http://127.0.0.1:5000`, com um provedor de IA configurado (veja o [README do backend](https://github.com/IannCarvalho/feedlens/blob/main/README.md)).
-2. Ajuste `public/config.json` para `{ "apiBaseUrl": "http://127.0.0.1:5000", "useMock": false, "productName": "Seu Produto" }`. **Não commite essa alteração**: o padrão do repositório precisa continuar `useMock: true`.
+2. Em `public/config.json`, troque `"useMock": true` por `"useMock": false` (o `apiBaseUrl` do repositório já aponta para `http://127.0.0.1:5000`). **Não commite essa alteração**: o padrão do repositório precisa continuar `useMock: true`.
 3. Rode `npm start` e envie um texto que pareça feedback sobre um produto ou serviço. Ele aparece em **Feedbacks** no painel.
 
 Se o feedback não aparece no painel, as causas comuns são: o formulário ainda está em modo demonstração; a IA marcou o texto como spam (use o filtro de spam no painel); ou a IA não conseguiu analisar (o feedback fica com o selo "Não analisado").
@@ -61,18 +63,20 @@ A imagem compila o app e o serve com nginx. A configuração entra por variávei
 
 ```powershell
 docker build -t feedlens-form .
-docker run --rm -p 8080:80 `
-  -e USE_MOCK=false `
-  -e API_BASE_URL=https://api.exemplo.com `
-  -e PRODUCT_NAME="Seu Produto" `
-  feedlens-form
+docker run --rm -p 8080:80 feedlens-form
+```
+
+Sem variáveis, a imagem sobe em modo demonstração em `http://localhost:8080`. Para enviar de verdade a uma API, passe as variáveis:
+
+```powershell
+docker run --rm -p 8080:80 -e USE_MOCK=false -e API_BASE_URL=https://api.exemplo.com -e "PRODUCT_NAME=o Acme App" feedlens-form
 ```
 
 | Variável | Padrão | Observação |
 |---|---|---|
 | `USE_MOCK` | `true` | Só aceita `true` ou `false`; outro valor impede o contêiner de subir |
-| `API_BASE_URL` | vazio | Origem da API, sem barra final |
-| `PRODUCT_NAME` | `o nosso produto` | |
+| `API_BASE_URL` | vazio | Origem da API, sem barra final. Com `USE_MOCK=false` e vazio, o envio vai para a própria origem do formulário e falha |
+| `PRODUCT_NAME` | `o nosso produto` | Escreva com o artigo, como no `config.json` |
 
 O nginx responde `200` em `/healthz`, serve o `index.html` para qualquer rota do app (reload em `/obrigado`, por exemplo) e nunca deixa o `config.json` em cache.
 
