@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          # Angular 22 exige Node >= 24.15 (ou 22.22.3); "24" resolve para a última 24.x.
+          node-version: "24"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint (eslint)
+        run: npm run lint
+
+      - name: Testes
+        run: npm test
+
+      - name: Build (inclui o orçamento de bundle)
+        run: npm run build
+
+  docker:
+    # Builda a imagem e confere o que ela promete: serve o app, cai no index
+    # nas rotas do Angular e grava o config.json a partir das variáveis.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build da imagem
+        run: docker build -t feedlens-form:ci .
+
+      - name: Smoke test (padrão: modo demonstração)
+        run: |
+          docker run -d --name form-default -p 8081:80 feedlens-form:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8081/healthz > /dev/null && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8081/healthz
+          curl -fsS http://localhost:8081/config.json | jq -e '.useMock == true and .apiBaseUrl == "" and .productName == "o nosso produto"'
+          curl -fsS http://localhost:8081/ | grep -q '<app-root>'
+          # Reload numa rota do app não pode dar 404.
+          curl -fsS http://localhost:8081/obrigado | grep -q '<app-root>'
+          curl -fsSI http://localhost:8081/config.json | grep -i '^cache-control: no-store'
+
+      - name: Smoke test (variáveis viram config.json, com escape)
+        run: |
+          docker run -d --name form-env -p 8082:80 \
+            -e USE_MOCK=false \
+            -e API_BASE_URL=https://api.exemplo.com \
+            -e 'PRODUCT_NAME=Acme "Pro" \ 2' \
+            feedlens-form:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8082/healthz > /dev/null && break
+            sleep 1
+          done
+          curl -fsS http://localhost:8082/config.json | jq -e \
+            --arg name 'Acme "Pro" \ 2' \
+            '.useMock == false and .apiBaseUrl == "https://api.exemplo.com" and .productName == $name'
+
+      - name: USE_MOCK inválido impede o contêiner de subir
+        run: |
+          if docker run --rm -e USE_MOCK=talvez feedlens-form:ci; then
+            echo "o contêiner subiu com USE_MOCK inválido" >&2
+            exit 1
+          fi
+
+      - name: Logs dos contêineres
+        if: failure()
+        run: |
+          docker logs form-default || true
+          docker logs form-env || true
