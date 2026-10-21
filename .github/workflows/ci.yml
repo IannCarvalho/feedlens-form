@@ -44,7 +44,7 @@ jobs:
       - name: Build da imagem
         run: docker build -t feedlens-form:ci .
 
-      - name: Smoke test (padrão: modo demonstração)
+      - name: "Smoke test (padrão - modo demonstração)"
         run: |
           docker run -d --name form-default -p 8081:80 feedlens-form:ci
           for i in $(seq 1 30); do
