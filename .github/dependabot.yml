@@ -8,6 +8,12 @@ updates:
     groups:
       minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # TypeScript major (6 -> 7): o @angular/build 22.2.x declara peer
+      # "typescript >=6.0 <6.1", entao um major quebra o npm ci com ERESOLVE.
+      # Revisar quando o Angular subir para uma versao que aceite TS 7.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
@@ -18,3 +24,9 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 2
+    ignore:
+      # Node major (ex 24 -> 25): o 25 e release Current (nao-LTS) e o projeto
+      # exige node >=24.15.0 (CI usa Node 24). So aceitar a proxima LTS par.
+      # Revisar quando sair a proxima versao LTS par do Node.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
