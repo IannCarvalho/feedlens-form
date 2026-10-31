@@ -5,6 +5,8 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve --host 127.0.0.1",
+    "config:gen": "node scripts/gen-config.mjs",
+    "prebuild": "node scripts/gen-config.mjs",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "typecheck": "ngc -p tsconfig.app.json --noEmit && ngc -p tsconfig.spec.json --noEmit",
