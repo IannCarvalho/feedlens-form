@@ -80,7 +80,19 @@ docker run --rm -p 8080:80 -e USE_MOCK=false -e API_BASE_URL=https://api.exemplo
 
 O nginx responde `200` em `/healthz`, serve o `index.html` para qualquer rota do app (reload em `/obrigado`, por exemplo) e nunca deixa o `config.json` em cache.
 
-Sem Docker, qualquer hospedagem de arquivos estáticos serve: publique `dist/feedback-form/browser`, edite o `config.json` do build e configure o fallback de rotas para o `index.html`.
+Sem Docker, qualquer hospedagem de arquivos estáticos serve (Vercel, Netlify, Render Static...): publique `dist/feedback-form/browser` e configure o fallback de rotas para o `index.html`.
+
+### Configuração no deploy estático (Vercel etc.)
+
+O `config.json` é um **asset** copiado de `public/` para o build. Como uma hospedagem estática **não** roda o entrypoint do contêiner, a configuração de runtime entra no momento do build: o hook `prebuild` (`scripts/gen-config.mjs`) gera o `public/config.json` a partir das **mesmas variáveis de ambiente** do caminho Docker. Basta defini-las no painel do provedor (o build é `npm run build`, a saída é `dist/feedback-form/browser`):
+
+| Variável | Propósito | Exemplo |
+|---|---|---|
+| `API_BASE_URL` | Origem da API do backend, **sem barra final**. Vira `apiBaseUrl`. | `https://feedlens.onrender.com` |
+| `USE_MOCK` | `false` = envia de verdade; `true` = modo demonstração. Só aceita `true`/`false`. Vira `useMock`. | `false` |
+| `PRODUCT_NAME` | Nome citado nos textos, **com o artigo**. Vira `productName`. | `o FeedLens` |
+
+Se **nenhuma** das três estiver definida, o `prebuild` não toca no `config.json` — então o `ng serve` de desenvolvimento e o build local continuam no `public/config.json` do repositório (modo demonstração). O caminho Docker é preservado: no estágio de build do contêiner essas variáveis não existem, e o entrypoint do nginx continua gravando o `config.json` a partir das env vars do runtime.
 
 ## Exigências do backend
 
