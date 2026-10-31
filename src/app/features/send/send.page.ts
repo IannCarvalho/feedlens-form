@@ -12,6 +12,8 @@ const FAILURE_TEXT: Record<SendFailure, string> = {
   busy: 'Recebemos muitos envios em pouco tempo. Espere cerca de um minuto e tente de novo. Seu texto continua aqui.',
   offline:
     'Parece que você está sem conexão. Verifique sua internet e tente de novo. Seu texto continua aqui.',
+  not_configured:
+    'A coleta de feedback ainda não está pronta para receber mensagens. Avisamos quem cuida disso — por favor, tente novamente mais tarde. Seu texto continua aqui.',
   unavailable:
     'Algo deu errado do nosso lado. Tente de novo em instantes. Seu texto continua aqui.',
 };

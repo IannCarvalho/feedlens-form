@@ -9,6 +9,12 @@ export type SendFailure =
   | 'busy'
   /** Sem conexão com o serviço (rede caiu, serviço fora do ar). */
   | 'offline'
+  /**
+   * O serviço está no ar, mas ainda não há nenhuma análise de IA configurada
+   * (nenhuma chave no servidor). O envio não foi guardado: é um estado de
+   * configuração do operador, não um erro do visitante.
+   */
+  | 'not_configured'
   /** Qualquer outra falha do serviço. */
   | 'unavailable';
 

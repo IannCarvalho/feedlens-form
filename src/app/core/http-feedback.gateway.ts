@@ -44,6 +44,13 @@ export function classify(error: unknown): SendOutcome {
   if (error.status === 409) {
     return { ok: true };
   }
+  // 503 com code 'llm_not_configured': o serviço está no ar, mas o operador
+  // ainda não configurou nenhuma chave de IA, então o feedback não foi
+  // guardado. É um estado de configuração, não uma falha do visitante — merece
+  // uma mensagem própria em vez do "algo deu errado" genérico.
+  if (error.status === 503 && errorCode(error) === 'llm_not_configured') {
+    return { ok: false, reason: 'not_configured' };
+  }
   const reason: SendFailure =
     error.status === 0
       ? 'offline'
@@ -53,4 +60,13 @@ export function classify(error: unknown): SendOutcome {
           ? 'busy'
           : 'unavailable';
   return { ok: false, reason };
+}
+
+/** Lê o campo `code` do corpo de erro da API, quando presente. */
+function errorCode(error: HttpErrorResponse): string | null {
+  const body = error.error;
+  if (body && typeof body === 'object' && typeof (body as { code?: unknown }).code === 'string') {
+    return (body as { code: string }).code;
+  }
+  return null;
 }

@@ -113,6 +113,24 @@ describe('SendPage', () => {
     expect(button().textContent).toContain('Tentar de novo');
   });
 
+  it('quando não há IA configurada, avisa sem termo técnico e mantém o texto', async () => {
+    gateway.outcome = { ok: false, reason: 'not_configured' };
+    await type('Meu feedback completo');
+    await submit();
+    fixture.detectChanges();
+
+    expect(textarea().value).toBe('Meu feedback completo');
+    expect(router.url).not.toBe('/obrigado');
+    const alert = el().querySelector('.alert');
+    expect(alert?.textContent).toContain('ainda não está pronta');
+    expect(alert?.textContent).toContain('Seu texto continua aqui');
+    // Sem jargão técnico para o cliente final.
+    for (const term of ['IA', 'LLM', 'provedor', 'chave', '503', 'API']) {
+      expect(alert?.textContent).not.toContain(term);
+    }
+    expect(button().textContent).toContain('Tentar de novo');
+  });
+
   it('o reenvio depois da falha usa o mesmo id', async () => {
     gateway.outcome = { ok: false, reason: 'unavailable' };
     await type('Meu feedback completo');
