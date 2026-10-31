@@ -70,6 +70,20 @@ describe('classify', () => {
     expect(failure(status)).toEqual({ ok: false, reason });
   });
 
+  it('503 com code llm_not_configured vira not_configured', () => {
+    const outcome = classify(
+      new HttpErrorResponse({ status: 503, error: { code: 'llm_not_configured' } }),
+    );
+    expect(outcome).toEqual({ ok: false, reason: 'not_configured' });
+  });
+
+  it('503 sem code de IA continua indisponível', () => {
+    const outcome = classify(
+      new HttpErrorResponse({ status: 503, error: { code: 'something_else' } }),
+    );
+    expect(outcome).toEqual({ ok: false, reason: 'unavailable' });
+  });
+
   it('erro que não é HTTP vira indisponível', () => {
     expect(classify(new Error('boom'))).toEqual({ ok: false, reason: 'unavailable' });
   });
