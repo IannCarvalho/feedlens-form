@@ -88,6 +88,25 @@ describe('SendPage', () => {
     expect(el().querySelector('#feedback-error')?.textContent).toContain('Conte um pouco mais');
   });
 
+  it('não envia texto acima do limite e marca o contador', async () => {
+    await type('a'.repeat(5001));
+    await submit();
+    expect(gateway.calls).toHaveLength(0);
+    const error = el().querySelector('#feedback-error');
+    expect(error?.textContent).toContain('passou do limite de 5000 caracteres');
+    expect(textarea().getAttribute('aria-invalid')).toBe('true');
+    expect(el().querySelector('.count')?.classList.contains('count-over')).toBe(true);
+  });
+
+  it('aceita exatamente o limite de caracteres', async () => {
+    await type('a'.repeat(5000));
+    await submit();
+    await fixture.whenStable();
+    expect(gateway.calls).toHaveLength(1);
+    expect(gateway.calls[0].text.length).toBe(5000);
+    expect(router.url).toBe('/obrigado');
+  });
+
   it('envia e vai para a página de agradecimento', async () => {
     await type('  O app ficou muito mais rápido!  ');
     await submit();
