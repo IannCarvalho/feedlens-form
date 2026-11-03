@@ -28,7 +28,7 @@ O app lê `config.json` ao subir (não entra no bundle), então o mesmo build se
 |---|---|---|---|
 | `apiBaseUrl` | `http://127.0.0.1:5000` | `""` | Origem da API, sem barra final. Ex.: `https://api.exemplo.com` |
 | `useMock` | `true` | `true` | `true` = modo demonstração, sem servidor. `false` = envia de verdade |
-| `productName` | `o nosso produto` | `nosso produto` | Nome citado nos textos, na voz do cliente final |
+| `productName` | `o nosso produto` | `o nosso produto` | Nome citado nos textos, na voz do cliente final |
 
 O `productName` entra no meio de uma frase ("Sua opinião ajuda a melhorar *{productName}*"), então escreva-o com o artigo: `o Acme App`, `a loja Acme`.
 
@@ -52,8 +52,19 @@ npm run build        # dist/feedback-form/browser (com orçamento de bundle)
 Para enviar de verdade a um backend local:
 
 1. Suba o backend em `http://127.0.0.1:5000`, com um provedor de IA configurado (veja o [README do backend](https://github.com/IannCarvalho/feedlens/blob/main/README.md)).
-2. Em `public/config.json`, troque `"useMock": true` por `"useMock": false` (o `apiBaseUrl` do repositório já aponta para `http://127.0.0.1:5000`). **Não commite essa alteração**: o padrão do repositório precisa continuar `useMock: true`.
+2. Gere o `config.json` com o envio real ligado. Há dois caminhos:
+   - **Por variáveis de ambiente (não deixa diff no repositório).** Use o mesmo script do build (`gen-config.mjs`, exposto como `npm run config:gen`). No PowerShell:
+     ```powershell
+     $env:API_BASE_URL = "http://127.0.0.1:5000"
+     $env:USE_MOCK = "false"
+     npm run config:gen   # grava public/config.json a partir das envs
+     npm start
+     ```
+     O script reescreve `public/config.json` localmente; antes de commitar, descarte a alteração (`git checkout -- public/config.json`) para o padrão do repositório continuar `useMock: true`.
+   - **Editando o arquivo à mão.** Em `public/config.json`, troque `"useMock": true` por `"useMock": false` (o `apiBaseUrl` do repositório já aponta para `http://127.0.0.1:5000`). **Não commite essa alteração**: o padrão do repositório precisa continuar `useMock: true`.
 3. Rode `npm start` e envie um texto que pareça feedback sobre um produto ou serviço. Ele aparece em **Feedbacks** no painel.
+
+> **Mínimo de 5 caracteres é só do cliente.** O formulário barra textos com menos de 5 caracteres (`FEEDBACK_MIN_CHARS` em `src/app/core/app-config.ts`) para evitar envios vazios — é uma regra de **UX**, não do contrato da API. O contrato do backend aceita de 1 a `MAX_FEEDBACK_CHARS` (5000) caracteres; o piso de 5 não existe no servidor e um cliente que ignore o formulário pode enviar menos.
 
 Se o feedback não aparece no painel, as causas comuns são: o formulário ainda está em modo demonstração; a IA marcou o texto como spam (use o filtro de spam no painel); ou a IA não conseguiu analisar (o feedback fica com o selo "Não analisado").
 
@@ -94,10 +105,40 @@ O `config.json` é um **asset** copiado de `public/` para o build. Como uma hosp
 
 Se **nenhuma** das três estiver definida, o `prebuild` não toca no `config.json` — então o `ng serve` de desenvolvimento e o build local continuam no `public/config.json` do repositório (modo demonstração). O caminho Docker é preservado: no estágio de build do contêiner essas variáveis não existem, e o entrypoint do nginx continua gravando o `config.json` a partir das env vars do runtime.
 
+### Deploy no Vercel (instância publicada)
+
+A instância em produção está em **[feedlens-tau.vercel.app](https://feedlens-tau.vercel.app)**. O projeto é configurado **pela UI do Vercel** (não há `vercel.json` no repositório — veja a decisão abaixo):
+
+- **Build Command:** `npm run build` (o hook `prebuild` roda o `gen-config.mjs` antes).
+- **Output Directory:** `dist/feedback-form/browser`.
+- **Variáveis de ambiente** (Project → Settings → Environment Variables), os valores de produção:
+
+  | Variável | Valor em produção |
+  |---|---|
+  | `API_BASE_URL` | `https://feedlens.onrender.com` |
+  | `USE_MOCK` | `false` |
+  | `PRODUCT_NAME` | `o FeedLens` |
+
+- **Fallback de rotas:** o app tem só duas rotas — `/` (formulário) e `/obrigado` (confirmação, com guarda de sessão); o `**` do Angular redireciona para `/`. O recarregamento direto de `/obrigado` precisa cair no `index.html`. Hospedando um SPA no Vercel sem `vercel.json`, o Vercel já faz o fallback para o `index.html` nas rotas que não são arquivos do build (as rotas client-side do Angular), então o reload em `/obrigado` resolve e abre o formulário (a guarda de sessão redireciona para `/` por não ter envio prévio, que é o comportamento esperado).
+
+> **Decisão: não criar `vercel.json`.** O deploy vivo já está configurado inteiramente pela UI (build, output e envs). Introduzir um `vercel.json` no repositório passaria a sobrepor essa configuração de UI e mudaria um deploy em produção que hoje funciona — risco sem ganho. O fallback de SPA já é o padrão do Vercel. Se um dia a configuração precisar virar código versionado, isso deve ser um PR deliberado que migre build, output e rewrites de uma vez, validado contra o projeto Vercel real.
+
 ## Exigências do backend
 
-- **CORS:** em produção, liste a origem do formulário em `CORS_ORIGINS` no backend (o padrão é `*`).
-- **Chave de ingestão (`INGEST_API_KEY`):** um site público não guarda segredo. Se a chave estiver ligada no backend, o formulário recebe `401`. Para recebimento público, é preciso uma rota de ingestão sem segredo (origem permitida, limite próprio e teto de gasto). Isso é uma mudança de backend, fora deste front.
+Este formulário é um site público e estático: **não guarda segredo**, então não envia `X-API-Key`. Para o backend aceitar os envios dele em produção, duas variáveis de ambiente precisam estar definidas lá (veja `app/config.py` e `app/ingest_auth.py` no [backend](https://github.com/IannCarvalho/feedlens)), **ambas com a origem exata do formulário** — no deploy atual, `https://feedlens-tau.vercel.app` (esquema + host, **sem barra final e sem caminho**):
+
+| Variável (backend) | Para quê | Sem ela |
+|---|---|---|
+| `INGEST_PUBLIC_ORIGINS` | Liga a **ingestão pública opt-in**: um `POST /api/feedbacks` sem chave é aceito quando o header `Origin` bate exatamente com uma das origens listadas. | Se `INGEST_API_KEY` estiver definida no backend, todo POST sem chave recebe **`401`** (`code: ingest_key_required`) e nenhum feedback do formulário é gravado. |
+| `CORS_ORIGINS` | Libera o navegador a ler a resposta do `POST` (CORS para `/api/*`). O padrão é `*`. | Com `*` funciona; **restrito sem incluir a origem do formulário**, o navegador bloqueia a resposta e o envio falha no cliente mesmo que o backend tenha gravado. |
+
+Detalhes que valem citar:
+
+- **`Origin` não é autenticação.** O header é forjável fora de um navegador; a origem só impede o uso a partir de páginas de outros sites. As barreiras reais contra gasto de LLM ficam nos dois limites abaixo.
+- **Rate limit público por IP:** `RATELIMIT_INGEST_PUBLIC` (padrão **`5 per minute`**), aplicado só ao caminho público (sem chave, via `Origin`).
+- **Teto diário global:** `INGEST_PUBLIC_DAILY_CAP` (padrão **`500`**) — total de ingestões públicas nas últimas 24h, contado no banco. Estourado, o endpoint responde **`429`** antes de ler o corpo ou chamar o LLM. O gasto máximo de LLM é ≈ este teto × custo por análise.
+- `'*'` **é recusado** em `INGEST_PUBLIC_ORIGINS` no boot do backend: a origem precisa ser literal.
+- Alternativas que NÃO se aplicam a este front: `INGEST_API_KEY` (o formulário não tem onde guardar a chave) e `INGEST_ALLOW_BYOK_WITHOUT_KEY` (o cliente final não traz chave de LLM). A leitura (`GET /api/feedbacks`) é governada por `API_READ_TOKEN`/`DASHBOARD_PASSWORD` e não envolve o formulário.
 
 ## Estrutura
 
