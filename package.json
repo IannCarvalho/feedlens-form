@@ -11,6 +11,7 @@
     "watch": "ng build --watch --configuration development",
     "typecheck": "ngc -p tsconfig.app.json --noEmit && ngc -p tsconfig.spec.json --noEmit",
     "test": "ng test --no-watch",
+    "test:scripts": "node --test \"scripts/**/*.test.mjs\"",
     "lint": "ng lint"
   },
   "private": true,
