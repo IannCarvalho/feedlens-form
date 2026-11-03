@@ -107,7 +107,7 @@ Se **nenhuma** das três estiver definida, o `prebuild` não toca no `config.jso
 
 ### Deploy no Vercel (instância publicada)
 
-A instância em produção está em **[feedlens-tau.vercel.app](https://feedlens-tau.vercel.app)**. O projeto é configurado **pela UI do Vercel** (não há `vercel.json` no repositório — veja a decisão abaixo):
+A instância em produção está em **[feedlens-tau.vercel.app](https://feedlens-tau.vercel.app)**. Build, output e variáveis de ambiente são configurados **pela UI do Vercel**; o `vercel.json` do repositório **só** define headers de segurança (veja [Headers de segurança](#headers-de-segurança) abaixo) e não toca nessa configuração:
 
 - **Build Command:** `npm run build` (o hook `prebuild` roda o `gen-config.mjs` antes).
 - **Output Directory:** `dist/feedback-form/browser`.
@@ -119,9 +119,21 @@ A instância em produção está em **[feedlens-tau.vercel.app](https://feedlens
   | `USE_MOCK` | `false` |
   | `PRODUCT_NAME` | `o FeedLens` |
 
-- **Fallback de rotas:** o app tem só duas rotas — `/` (formulário) e `/obrigado` (confirmação, com guarda de sessão); o `**` do Angular redireciona para `/`. O recarregamento direto de `/obrigado` precisa cair no `index.html`. Hospedando um SPA no Vercel sem `vercel.json`, o Vercel já faz o fallback para o `index.html` nas rotas que não são arquivos do build (as rotas client-side do Angular), então o reload em `/obrigado` resolve e abre o formulário (a guarda de sessão redireciona para `/` por não ter envio prévio, que é o comportamento esperado).
+- **Fallback de rotas:** o app tem só duas rotas — `/` (formulário) e `/obrigado` (confirmação, com guarda de sessão); o `**` do Angular redireciona para `/`. O recarregamento direto de `/obrigado` precisa cair no `index.html`. Hospedando um SPA no Vercel sem `rewrites`, o Vercel já faz o fallback para o `index.html` nas rotas que não são arquivos do build (as rotas client-side do Angular), então o reload em `/obrigado` resolve e abre o formulário (a guarda de sessão redireciona para `/` por não ter envio prévio, que é o comportamento esperado).
 
-> **Decisão: não criar `vercel.json`.** O deploy vivo já está configurado inteiramente pela UI (build, output e envs). Introduzir um `vercel.json` no repositório passaria a sobrepor essa configuração de UI e mudaria um deploy em produção que hoje funciona — risco sem ganho. O fallback de SPA já é o padrão do Vercel. Se um dia a configuração precisar virar código versionado, isso deve ser um PR deliberado que migre build, output e rewrites de uma vez, validado contra o projeto Vercel real.
+#### Headers de segurança
+
+O `vercel.json` do repositório define **somente** a chave `headers` — nenhum `buildCommand`, `outputDirectory`, `framework` ou `rewrites`. A configuração de build e o fallback de SPA continuam **inteiramente na UI do Vercel**, intocados: o Vercel mescla os headers do `vercel.json` sem substituir o resto do projeto. Isso adiciona os headers de segurança que o deploy hoje não envia (só HSTS vem do Vercel), aplicados a `/(.*)`:
+
+| Header | Valor | Para quê |
+|---|---|---|
+| `X-Content-Type-Options` | `nosniff` | Impede o navegador de adivinhar o content-type (anti-MIME-sniffing). |
+| `X-Frame-Options` | `DENY` | Bloqueia o enquadramento em `<iframe>` (anti-clickjacking) em navegadores antigos. |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` | Não vaza o caminho completo para outras origens. |
+| `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` | Desliga APIs do navegador que o formulário não usa. |
+| `Content-Security-Policy` | `frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'` | Anti-clickjacking moderno + trava `<base>`, plugins e destino de formulário. |
+
+A CSP **não** declara `script-src` nem `style-src`: o build do Angular (beasties) injeta um `<style>` e um `<script>` **inline** no `index.html`, então restringir essas diretivas sem `'unsafe-inline'` deixaria a página em branco. `connect-src` também fica de fora pela mesma razão (restringir exigiria liberar as origens inline), mantendo o `POST /api/feedbacks`/`GET /health` para `https://feedlens.onrender.com` funcionando. O `scripts/vercel-headers.test.mjs` (em `npm run test:scripts`) trava essa fronteira: falha se o `vercel.json` ganhar qualquer chave além de `headers`, se um header obrigatório sumir, ou se a CSP passar a restringir `script-src`/`style-src`.
 
 ## Exigências do backend
 
