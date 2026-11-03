@@ -16,7 +16,9 @@ export interface AppConfig {
 export const DEFAULT_CONFIG: AppConfig = {
   apiBaseUrl: '',
   useMock: true,
-  productName: 'nosso produto',
+  // Com o artigo, como o template espera ("ajuda a melhorar {productName}") e
+  // como o gen-config.mjs e o script do Docker usam por padrão.
+  productName: 'o nosso produto',
 };
 
 export const APP_CONFIG = new InjectionToken<AppConfig>('APP_CONFIG', {

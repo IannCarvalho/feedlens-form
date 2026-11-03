@@ -20,7 +20,12 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const scriptDir = dirname(fileURLToPath(import.meta.url))
-const target = join(scriptDir, '..', 'public', 'config.json')
+// Saída padrão: public/config.json. Um override por env existe só para o teste
+// (node --test) escrever num diretório temporário, nunca no arquivo real do
+// repositório; o deploy e o dev local nunca definem esta variável.
+const target = process.env.GEN_CONFIG_TARGET
+  ? process.env.GEN_CONFIG_TARGET
+  : join(scriptDir, '..', 'public', 'config.json')
 
 const hasApi = process.env.API_BASE_URL !== undefined
 const hasMock = process.env.USE_MOCK !== undefined

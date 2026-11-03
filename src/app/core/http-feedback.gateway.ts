@@ -25,6 +25,10 @@ export class HttpFeedbackGateway extends FeedbackGateway {
   /**
    * `no-cors`: a resposta é opaca, mas o pedido sai e o serviço acorda enquanto
    * a pessoa escreve. Não depende de CORS e não precisa de credencial.
+   *
+   * `GET /health` faz um `SELECT 1` no banco, então com um Postgres serverless
+   * (Neon) que dorme após alguns minutos ocioso, este ping acorda o app E o
+   * banco de uma vez — ambos voltam em centenas de ms, antes do envio.
    */
   override warmUp(): void {
     if (this.warmed) {
